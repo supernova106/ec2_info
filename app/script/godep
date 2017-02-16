@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Usage: script/godep [command]
+#
+# Sets up GOPATH and runs command
+
+set -e
+export GOPATH="${PWD}/../Godeps/_workspace:${PWD}/vendor:$GOPATH"
+echo $GOPATH
+$@

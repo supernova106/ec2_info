@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+# Usage: script/start
+#
+# Builds API Response Time
+
+set -e
+
+CURRENT_DIR=${PWD}
+cd $CURRENT_DIR && ./script/godep go build
+
