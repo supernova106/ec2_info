@@ -1,0 +1,5 @@
+LINUX_ON_DEMAND_PRICE_URL=http://a0.awsstatic.com/pricing/1/ec2/linux-od.min.js
+LINUX_ON_DEMAND_PRICE_PREVIOUS_GEN_URL=http://a0.awsstatic.com/pricing/1/ec2/previous-generation/linux-od.min.js
+APP_PORT=8080
+GIN_ENV=development
+
