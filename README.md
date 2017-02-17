@@ -8,5 +8,11 @@
 ##Usage
 - `source .env`
 
+#Todo
+- rate limiting
+- add caching layer
+- update UI components
+- export to JSON format
+
 ##Contact
 - Binh Nguyen
