@@ -4,6 +4,6 @@
 # Sets up GOPATH and runs command
 
 set -e
-export GOPATH="${PWD}/../Godeps/_workspace:${PWD}/vendor:$GOPATH"
+export GOPATH="${PWD}/../Godeps/_workspace:${PWD}/vendor:${GOPATH}/src/github.com/supernova106/ec2_info:$GOPATH"
 echo $GOPATH
 $@
