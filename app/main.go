@@ -1,8 +1,8 @@
 package main
 
 import (
-	"ec2-info/app/config"
-	"ec2-info/app/handlers"
+	"github.com/supernova106/ec2-info/app/config"
+	"github.com/supernova106/ec2-info/app/handlers"
 	"github.com/gin-gonic/gin"
 	"log"
 )

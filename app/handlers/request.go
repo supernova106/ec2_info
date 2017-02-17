@@ -1,8 +1,8 @@
 package request
 
 import (
-	"ec2-info/app/config"
-	"ec2-info/app/models"
+	"github.com/supernova106/ec2-info/app/config"
+	"github.com/supernova106/ec2-info/app/models"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"

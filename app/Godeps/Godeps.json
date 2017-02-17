@@ -1,5 +1,5 @@
 {
-	"ImportPath": "ec2-info/app",
+	"ImportPath": "github.com/supernova106/ec2-info/app",
 	"GoVersion": "go1.6",
 	"GodepVersion": "v74",
 	"Deps": [
