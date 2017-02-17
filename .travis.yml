@@ -1,0 +1,12 @@
+language: go
+
+go:
+  - 1.6.2
+
+services:
+  - ec2-info
+
+script:
+  - source .env
+  - ./script/build
+   
