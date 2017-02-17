@@ -6,5 +6,6 @@
 set -e
 
 CURRENT_DIR=${PWD}
+echo $CURRENT_DIR
 cd $CURRENT_DIR && ./script/godep go build
 
