@@ -7,5 +7,5 @@ services:
   - ec2-info
 
 script:
-  - ./script/build
+  - ./app/script/build
    
