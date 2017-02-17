@@ -3,8 +3,7 @@ language: go
 go:
   - 1.6.2
 
-services:
-  - ec2-info
+go_import_path: ec2-info/app
 
 script:
   - ./app/script/build
