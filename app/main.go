@@ -1,9 +1,9 @@
 package main
 
 import (
+	"github.com/gin-gonic/gin"
 	"github.com/supernova106/ec2_info/app/config"
 	"github.com/supernova106/ec2_info/app/handlers"
-	"github.com/gin-gonic/gin"
 	"log"
 )
 
@@ -25,8 +25,9 @@ func main() {
 	router.Use(injectDependencyServices())
 
 	router.GET("/", request.Check)
-
 	router.GET("/price", request.GetData)
+	router.GET("/describe", request.DescribeEC2)
+	router.GET("/utilization", request.Utilization)
 
 	// By default it serves on :8080 unless a
 	// API_PORT environm+nt variable was defined.

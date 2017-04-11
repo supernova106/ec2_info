@@ -1,15 +1,136 @@
 package request
 
 import (
-	"github.com/supernova106/ec2_info/app/config"
-	"github.com/supernova106/ec2_info/app/models"
 	"encoding/json"
 	"fmt"
+	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/cloudwatch"
+	"github.com/aws/aws-sdk-go/service/ec2"
 	"github.com/gin-gonic/gin"
 	"github.com/robertkrimen/otto"
+	"github.com/supernova106/ec2_info/app/config"
+	"github.com/supernova106/ec2_info/app/models"
 	"io/ioutil"
+	"log"
 	"net/http"
+	"strings"
+	"time"
 )
+
+func DescribeEC2(c *gin.Context) {
+	sess, err := session.NewSession()
+	if err != nil {
+		panic(err)
+	}
+	awsRegion := c.DefaultQuery("region", "us-east-1")
+	instanceStateName := c.DefaultQuery("instance-state-name", "running")
+	reservedFlag := c.DefaultQuery("reserved", "0")
+
+	// Create an EC2 service object in the "us-west-2" region
+	// Note that you can also configure your region globally by
+	// exporting the AWS_REGION environment variable
+	svc := ec2.New(sess, &aws.Config{Region: aws.String(awsRegion)})
+	if "1" == reservedFlag {
+		state := c.DefaultQuery("state", "active")
+		params := &ec2.DescribeReservedInstancesInput{
+			Filters: []*ec2.Filter{
+				&ec2.Filter{
+					Name: aws.String("state"),
+					Values: []*string{
+						aws.String(strings.Join([]string{"*", state, "*"}, "")),
+					},
+				},
+			},
+		}
+
+		resp, err := svc.DescribeReservedInstances(params)
+		if err != nil {
+			fmt.Println("there was an error listing instances in", awsRegion, err.Error())
+			log.Fatal(err.Error())
+			c.JSON(400, err.Error())
+		} else {
+			c.JSON(200, resp)
+		}
+	} else {
+		// Call the DescribeInstances Operation
+		params := &ec2.DescribeInstancesInput{
+			Filters: []*ec2.Filter{
+				&ec2.Filter{
+					Name: aws.String("instance-state-name"),
+					Values: []*string{
+						aws.String(strings.Join([]string{"*", instanceStateName, "*"}, "")),
+					},
+				},
+			},
+		}
+		resp, err := svc.DescribeInstances(params)
+		if err != nil {
+			fmt.Println("there was an error listing instances in", awsRegion, err.Error())
+			log.Fatal(err.Error())
+			c.JSON(400, err.Error())
+		} else {
+			c.JSON(200, resp.Reservations)
+		}
+	}
+
+	// resp has all of the response data, pull out instance IDs:
+	// fmt.Println("> Number of reservation sets: ", len(resp.Reservations))
+	// for idx, res := range resp.Reservations {
+	// 	fmt.Println("  > Number of instances: ", len(res.Instances))
+	// 	for _, inst := range resp.Reservations[idx].Instances {
+	// 		fmt.Println("    - Instance ID: ", *inst.InstanceId)
+	// 	}
+	// }
+
+	return
+}
+
+func Utilization(c *gin.Context) {
+	sess, err := session.NewSession()
+	if err != nil {
+		panic(err)
+	}
+
+	awsRegion := c.DefaultQuery("region", "us-east-1")
+	instanceId := c.Query("InstanceId")
+	metricName := c.DefaultQuery("MetricName", "CPUUtilization")
+
+	if InstanceId == "" {
+		c.JSON(400, gin.H{"error": "InstanceID is missing!"})
+		return
+	}
+	// Create new cloudwatch client.
+	svc := cloudwatch.New(sess, &aws.Config{Region: aws.String(awsRegion)})
+	now := time.Now()
+	prev := now.Add(time.Duration(168) * time.Hour * -1)
+
+	params := &cloudwatch.GetMetricStatisticsInput{
+		MetricName: aws.String(metricName),
+		Namespace:  aws.String("AWS/EC2"),
+		Dimensions: []*cloudwatch.Dimension{
+			&cloudwatch.Dimension{
+				Name:  aws.String("InstanceId"),
+				Value: aws.String(instanceId),
+			},
+		},
+		Period:     aws.Int64(86400),
+		Statistics: []*string{aws.String("Average"), aws.String("Maximum"), aws.String("Minimum")},
+		StartTime:  aws.Time(prev),
+		EndTime:    aws.Time(now),
+	}
+
+	result, err := svc.GetMetricStatistics(params)
+
+	if err != nil {
+		fmt.Println("there was an error listing instances in", awsRegion, err.Error())
+		log.Fatal(err.Error())
+		c.JSON(400, err.Error())
+	} else {
+		c.JSON(200, result)
+	}
+	return
+}
 
 func GetData(c *gin.Context) {
 	cfg := c.MustGet("cfg").(*config.Config)
