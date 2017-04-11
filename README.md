@@ -43,6 +43,7 @@ localhost/price
 - https://godoc.org/github.com/datacratic/aws-sdk-go/service/cloudwatch#example-CloudWatch-GetMetricStatistics 
 - https://github.com/aws/aws-sdk-go 
 - https://blog.golang.org/go-slices-usage-and-internals
+- https://golang.org/doc/effective_go.html
 
 ## Contact
 - Binh Nguyen

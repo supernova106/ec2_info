@@ -14,91 +14,145 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"runtime"
 	"strings"
+	"sync"
 	"time"
 )
 
 func DescribeEC2(c *gin.Context) {
+	awsRegion := c.DefaultQuery("region", "us-east-1")
+	instanceStateName := c.DefaultQuery("instance-state-name", "running")
+	reservedFlag := c.DefaultQuery("reserved", "0")
+
+	if "1" == reservedFlag {
+		state := c.DefaultQuery("state", "active")
+		resp := getDescribeReservedEC2(awsRegion, state)
+		c.JSON(200, resp)
+	} else {
+		resp := getDescribeEC2(awsRegion, instanceStateName)
+		c.JSON(200, resp.Reservations)
+	}
+
+	return
+}
+
+func getDescribeReservedEC2(awsRegion string, state string) *ec2.DescribeReservedInstancesOutput {
 	sess, err := session.NewSession()
 	if err != nil {
 		panic(err)
 	}
-	awsRegion := c.DefaultQuery("region", "us-east-1")
-	instanceStateName := c.DefaultQuery("instance-state-name", "running")
-	reservedFlag := c.DefaultQuery("reserved", "0")
 
 	// Create an EC2 service object in the "us-west-2" region
 	// Note that you can also configure your region globally by
 	// exporting the AWS_REGION environment variable
 	svc := ec2.New(sess, &aws.Config{Region: aws.String(awsRegion)})
-	if "1" == reservedFlag {
-		state := c.DefaultQuery("state", "active")
-		params := &ec2.DescribeReservedInstancesInput{
-			Filters: []*ec2.Filter{
-				&ec2.Filter{
-					Name: aws.String("state"),
-					Values: []*string{
-						aws.String(strings.Join([]string{"*", state, "*"}, "")),
-					},
+	params := &ec2.DescribeReservedInstancesInput{
+		Filters: []*ec2.Filter{
+			&ec2.Filter{
+				Name: aws.String("state"),
+				Values: []*string{
+					aws.String(strings.Join([]string{"*", state, "*"}, "")),
 				},
 			},
-		}
-
-		resp, err := svc.DescribeReservedInstances(params)
-		if err != nil {
-			fmt.Println("there was an error listing instances in", awsRegion, err.Error())
-			log.Fatal(err.Error())
-			c.JSON(400, err.Error())
-		} else {
-			c.JSON(200, resp)
-		}
-	} else {
-		// Call the DescribeInstances Operation
-		params := &ec2.DescribeInstancesInput{
-			Filters: []*ec2.Filter{
-				&ec2.Filter{
-					Name: aws.String("instance-state-name"),
-					Values: []*string{
-						aws.String(strings.Join([]string{"*", instanceStateName, "*"}, "")),
-					},
-				},
-			},
-		}
-		resp, err := svc.DescribeInstances(params)
-		if err != nil {
-			fmt.Println("there was an error listing instances in", awsRegion, err.Error())
-			log.Fatal(err.Error())
-			c.JSON(400, err.Error())
-		} else {
-			c.JSON(200, resp.Reservations)
-		}
+		},
 	}
 
-	// resp has all of the response data, pull out instance IDs:
-	// fmt.Println("> Number of reservation sets: ", len(resp.Reservations))
-	// for idx, res := range resp.Reservations {
-	// 	fmt.Println("  > Number of instances: ", len(res.Instances))
-	// 	for _, inst := range resp.Reservations[idx].Instances {
-	// 		fmt.Println("    - Instance ID: ", *inst.InstanceId)
-	// 	}
-	// }
+	resp, err := svc.DescribeReservedInstances(params)
+	if err != nil {
+		fmt.Println("there was an error listing instances in", awsRegion, err.Error())
+		log.Fatal(err.Error())
+	}
 
-	return
+	return resp
 }
 
-func Utilization(c *gin.Context) {
+func getDescribeEC2(awsRegion string, instanceStateName string) *ec2.DescribeInstancesOutput {
 	sess, err := session.NewSession()
 	if err != nil {
 		panic(err)
 	}
+	svc := ec2.New(sess, &aws.Config{Region: aws.String(awsRegion)})
+	// Call the DescribeInstances Operation
+	params := &ec2.DescribeInstancesInput{
+		Filters: []*ec2.Filter{
+			&ec2.Filter{
+				Name: aws.String("instance-state-name"),
+				Values: []*string{
+					aws.String(strings.Join([]string{"*", instanceStateName, "*"}, "")),
+				},
+			},
+		},
+	}
+	resp, err := svc.DescribeInstances(params)
+	if err != nil {
+		fmt.Println("there was an error listing instances in", awsRegion, err.Error())
+		log.Fatal(err.Error())
+	}
 
+	return resp
+}
+
+func Utilization(c *gin.Context) {
 	awsRegion := c.DefaultQuery("region", "us-east-1")
 	instanceId := c.Query("InstanceId")
 	metricName := c.DefaultQuery("MetricName", "CPUUtilization")
-
-	if InstanceId == "" {
+	parallel := runtime.NumCPU() * 2
+	if instanceId == "" {
 		c.JSON(400, gin.H{"error": "InstanceID is missing!"})
 		return
+	}
+
+	var instanceList []string
+	var dataMetric map[string]*cloudwatch.GetMetricStatisticsOutput
+	dataMetric = make(map[string]*cloudwatch.GetMetricStatisticsOutput)
+
+	if instanceId == "all" {
+		// get list of running instances
+		resp := getDescribeEC2(awsRegion, "running")
+		// resp has all of the response data, pull out instance IDs:
+		for idx, _ := range resp.Reservations {
+			for _, inst := range resp.Reservations[idx].Instances {
+				instanceList = append(instanceList, *inst.InstanceId)
+			}
+		}
+
+		// on the number of CPUs available.
+		chunkSize := len(instanceList) / parallel
+
+		if chunkSize < parallel {
+			chunkSize = len(instanceList)
+		}
+
+		for start := 0; start < len(instanceList); start += chunkSize {
+			end := start + chunkSize
+			if end > len(instanceList) {
+				end = len(instanceList)
+			}
+
+			var complete sync.WaitGroup
+			for _, eachEC2 := range instanceList[start:end] {
+				complete.Add(1)
+				go func(eachEC2 string) {
+					defer complete.Done()
+					fmt.Println("Processing ", eachEC2)
+					dataMetric[eachEC2] = getUtilization(awsRegion, eachEC2, metricName)
+				}(eachEC2)
+			}
+			complete.Wait()
+		}
+	} else {
+		dataMetric[instanceId] = getUtilization(awsRegion, instanceId, metricName)
+	}
+
+	c.JSON(200, dataMetric)
+	return
+}
+
+func getUtilization(awsRegion string, instanceId string, metricName string) *cloudwatch.GetMetricStatisticsOutput {
+	sess, err := session.NewSession()
+	if err != nil {
+		panic(err)
 	}
 	// Create new cloudwatch client.
 	svc := cloudwatch.New(sess, &aws.Config{Region: aws.String(awsRegion)})
@@ -121,15 +175,12 @@ func Utilization(c *gin.Context) {
 	}
 
 	result, err := svc.GetMetricStatistics(params)
-
 	if err != nil {
 		fmt.Println("there was an error listing instances in", awsRegion, err.Error())
 		log.Fatal(err.Error())
-		c.JSON(400, err.Error())
-	} else {
-		c.JSON(200, result)
 	}
-	return
+
+	return result
 }
 
 func GetData(c *gin.Context) {
