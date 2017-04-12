@@ -40,6 +40,7 @@ localhost/price
 
 ## References
 - https://github.com/aws/aws-sdk-go/tree/f8f7a96133a04892b935a2ae9bebdf80bf7c6397/example 
+- https://docs.aws.amazon.com/sdk-for-go/api/service/ec2/#EC2.DescribeInstances
 - https://godoc.org/github.com/datacratic/aws-sdk-go/service/cloudwatch#example-CloudWatch-GetMetricStatistics 
 - https://github.com/aws/aws-sdk-go 
 - https://blog.golang.org/go-slices-usage-and-internals

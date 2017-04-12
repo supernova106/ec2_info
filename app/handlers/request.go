@@ -24,13 +24,50 @@ func DescribeEC2(c *gin.Context) {
 	awsRegion := c.DefaultQuery("region", "us-east-1")
 	instanceStateName := c.DefaultQuery("instance-state-name", "running")
 	reservedFlag := c.DefaultQuery("reserved", "0")
+	instanceIdsString := c.DefaultQuery("instanceIds", "")
 
 	if "1" == reservedFlag {
 		state := c.DefaultQuery("state", "active")
 		resp := getDescribeReservedEC2(awsRegion, state)
 		c.JSON(200, resp)
 	} else {
-		resp := getDescribeEC2(awsRegion, instanceStateName)
+		var instanceIds []*string
+		if strings.Contains(instanceIdsString, ",") {
+			s := strings.Split(instanceIdsString, ",")
+			for _, value := range s {
+				instanceIds = append(instanceIds, aws.String(value))
+			}
+		} else if strings.Contains(instanceIdsString, "i-") {
+			instanceIds = append(instanceIds, aws.String(instanceIdsString))
+		}
+
+		var params *ec2.DescribeInstancesInput
+		if len(instanceIds) > 0 {
+			params = &ec2.DescribeInstancesInput{
+				Filters: []*ec2.Filter{
+					&ec2.Filter{
+						Name: aws.String("instance-state-name"),
+						Values: []*string{
+							aws.String(strings.Join([]string{"*", instanceStateName, "*"}, "")),
+						},
+					},
+				},
+				InstanceIds: instanceIds,
+			}
+		} else {
+			params = &ec2.DescribeInstancesInput{
+				Filters: []*ec2.Filter{
+					&ec2.Filter{
+						Name: aws.String("instance-state-name"),
+						Values: []*string{
+							aws.String(strings.Join([]string{"*", instanceStateName, "*"}, "")),
+						},
+					},
+				},
+			}
+		}
+
+		resp := getDescribeEC2(awsRegion, params)
 		c.JSON(200, resp.Reservations)
 	}
 
@@ -67,23 +104,12 @@ func getDescribeReservedEC2(awsRegion string, state string) *ec2.DescribeReserve
 	return resp
 }
 
-func getDescribeEC2(awsRegion string, instanceStateName string) *ec2.DescribeInstancesOutput {
+func getDescribeEC2(awsRegion string, params *ec2.DescribeInstancesInput) *ec2.DescribeInstancesOutput {
 	sess, err := session.NewSession()
 	if err != nil {
 		panic(err)
 	}
 	svc := ec2.New(sess, &aws.Config{Region: aws.String(awsRegion)})
-	// Call the DescribeInstances Operation
-	params := &ec2.DescribeInstancesInput{
-		Filters: []*ec2.Filter{
-			&ec2.Filter{
-				Name: aws.String("instance-state-name"),
-				Values: []*string{
-					aws.String(strings.Join([]string{"*", instanceStateName, "*"}, "")),
-				},
-			},
-		},
-	}
 	resp, err := svc.DescribeInstances(params)
 	if err != nil {
 		fmt.Println("there was an error listing instances in", awsRegion, err.Error())
@@ -109,7 +135,17 @@ func Utilization(c *gin.Context) {
 
 	if instanceId == "all" {
 		// get list of running instances
-		resp := getDescribeEC2(awsRegion, "running")
+		params := &ec2.DescribeInstancesInput{
+			Filters: []*ec2.Filter{
+				&ec2.Filter{
+					Name: aws.String("instance-state-name"),
+					Values: []*string{
+						aws.String(strings.Join([]string{"*", "running", "*"}, "")),
+					},
+				},
+			},
+		}
+		resp := getDescribeEC2(awsRegion, params)
 		// resp has all of the response data, pull out instance IDs:
 		for idx, _ := range resp.Reservations {
 			for _, inst := range resp.Reservations[idx].Instances {
