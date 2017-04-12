@@ -12,11 +12,19 @@
 - *instance-state-name* default value `running`
 - *state* default value `active`
 
-```
-# describe all running instances in a region
+
+- describe all running instances in a region
+
+```    
 localhost/describe
 localhost/describe?region=us-west-2&instance-state-name=running
-# check for active reserved instances
+localhost/describe?region=us-west-2&instanceIDs=i-xxx
+localhost/describe?region=us-west-2&instanceIDs=i-xxx,i-yyy
+```
+
+- check for active reserved instances
+
+```
 localhost/describe?reserved=1
 localhost/describe?reserved=1&state=retired
 ```
