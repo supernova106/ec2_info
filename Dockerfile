@@ -2,10 +2,10 @@ FROM golang:latest
 
 ENV GOPATH /go
 
-RUN mkdir -p "$GOPATH/src/ec2-info"
-ADD . "$GOPATH/src/ec2-info"
+RUN mkdir -p "$GOPATH/src/ec2_info"
+ADD . "$GOPATH/src/ec2_info"
 
-WORKDIR $GOPATH/src/ec2-info/app
+WORKDIR $GOPATH/src/ec2_info/app
 RUN chmod +x script/*
 RUN ./script/build
 
