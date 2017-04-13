@@ -121,13 +121,9 @@ func getDescribeEC2(awsRegion string, params *ec2.DescribeInstancesInput) *ec2.D
 
 func Utilization(c *gin.Context) {
 	awsRegion := c.DefaultQuery("region", "us-east-1")
-	instanceId := c.Query("InstanceId")
+	instanceId := c.DefaultQuery("instanceId", "all")
 	metricName := c.DefaultQuery("MetricName", "CPUUtilization")
 	parallel := runtime.NumCPU() * 2
-	if instanceId == "" {
-		c.JSON(400, gin.H{"error": "InstanceID is missing!"})
-		return
-	}
 
 	var instanceList []string
 	var dataMetric map[string]*cloudwatch.GetMetricStatisticsOutput
@@ -177,8 +173,11 @@ func Utilization(c *gin.Context) {
 			}
 			complete.Wait()
 		}
-	} else {
+	} else if strings.Contains(instanceId, "i-") {
 		dataMetric[instanceId] = getUtilization(awsRegion, instanceId, metricName)
+	} else {
+		c.JSON(400, gin.H{"error": "instanceId is missing!"})
+		return
 	}
 
 	c.JSON(200, dataMetric)

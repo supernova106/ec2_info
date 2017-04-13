@@ -31,8 +31,8 @@ localhost/describe?reserved=1&state=retired
 
 ### Get EC2 metrics
 ```
-localhost/utilization?InstanceID=xxxxxx
-localhost/utilization?InstanceID=xxxxxx&MetricName=CPUUtilization
+localhost/utilization?instanceID=xxxxxx
+localhost/utilization?instanceID=xxxxxx&MetricName=CPUUtilization
 ```
 
 ### Get Ondemand EC2 prices
